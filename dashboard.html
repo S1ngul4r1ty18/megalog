@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ system_name }} - Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar { background-color: #1a1a1a; }
+        .main-content { background-color: #0d0d0d; }
+        .card { background-color: #1a1a1a; border: 1px solid #333; }
+        .flash-message { 
+            position: fixed; top: 20px; right: 20px; 
+            padding: 10px 20px; border-radius: 6px; 
+            font-weight: 600; z-index: 1000; opacity: 0.9; 
+        }
+        .flash-success { background-color: #10B981; color: white; }
+        .flash-danger { background-color: #EF4444; color: white; }
+        .flash-info { background-color: #3B82F6; color: white; }
+        .progress-bar-container { 
+            background-color: #333; 
+            border-radius: 4px; 
+            overflow: hidden; 
+            height: 12px; 
+        }
+        .progress-bar { 
+            height: 100%; 
+            background-color: #EF4444; 
+            transition: width 0.5s ease-in-out; 
+        }
+        .status-active { border-color: #10B981; }
+        .status-warning { border-color: #FBBF24; }
+        .status-error { border-color: #EF4444; }
+    </style>
+</head>
+<body class="flex min-h-screen text-white">
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash-message flash-{{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <!-- Sidebar -->
+    <div class="sidebar w-64 p-4 flex flex-col">
+        <div class="flex items-center mb-10 mt-2">
+            <svg class="w-8 h-8 text-red-600 mr-2" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+            <span class="text-xl font-bold">{{ system_name }}</span>
+        </div>
+        
+        <nav class="w-full space-y-2 flex-1">
+            <a href="{{ url_for('main.dashboard') }}" 
+               class="flex items-center p-3 rounded-lg bg-red-700 text-white font-semibold">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l-7-7-7 7m10 0v10a1 1 0 01-1 1h-3m-6 0h6"/>
+                </svg>
+                Dashboard
+            </a>
+            
+            <a href="{{ url_for('main.search_forensics') }}" 
+               class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/>
+                </svg>
+                Busca Forense
+            </a>
+            
+            <a href="{{ url_for('main.logs_daily') }}" 
+               class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                Logs Diários
+            </a>
+            
+            <div class="pt-4 border-t border-gray-700"></div>
+            
+            <a href="{{ url_for('main.change_password') }}" 
+               class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+                </svg>
+                Alterar Senha
+            </a>
+            
+            {% if current_user and current_user.is_admin %}
+            <div class="pt-4 border-t border-gray-700">
+                <p class="text-xs text-gray-500 mb-2 px-3">ADMINISTRAÇÃO</p>
+                <a href="{{ url_for('main.admin_users') }}" 
+                   class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"/>
+                    </svg>
+                    Usuários
+                </a>
+                <a href="{{ url_for('main.admin_audit_log') }}" 
+                   class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition">
+                    <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                              d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                    Auditoria
+                </a>
+            </div>
+            {% endif %}
+        </nav>
+        
+        <div class="border-t border-gray-700 pt-4">
+            <a href="{{ url_for('main.logout') }}" 
+               class="flex items-center p-3 rounded-lg text-gray-300 hover:bg-red-700 transition">
+                <svg class="w-5 h-5 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" 
+                          d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+                </svg>
+                Sair
+            </a>
+            <div class="text-xs text-gray-500 text-center mt-4">
+                {{ system_version }}
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content flex-1 p-8 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-3xl font-extrabold">Dashboard do Sistema</h1>
+            <div class="text-sm text-gray-400">
+                Olá, <span class="font-semibold text-white">{{ current_user.username }}</span>
+            </div>
+        </div>
+        
+        <!-- Métricas em Tempo Real -->
+        <h2 class="text-xl font-semibold text-gray-300 mb-4">Monitoramento em Tempo Real</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <!-- CPU Widget -->
+            <div class="card p-5 rounded-xl shadow-lg border-l-4 border-red-600">
+                <h3 class="text-lg font-semibold text-red-400 mb-3">CPU (Núcleos)</h3>
+                <div id="cpu-cores" class="space-y-2">
+                    <p class="text-sm text-gray-500">Carregando...</p>
+                </div>
+            </div>
+            
+            <!-- RAM Widget -->
+            <div class="card p-5 rounded-xl shadow-lg border-l-4 border-red-600">
+                <h3 class="text-lg font-semibold text-red-400 mb-3">MEMÓRIA RAM</h3>
+                <p id="ram-value" class="text-3xl font-extrabold">0.0%</p>
+                <div class="progress-bar-container mt-2">
+                    <div id="ram-progress" class="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Disco HOT Widget -->
+            <div class="card p-5 rounded-xl shadow-lg border-l-4 border-red-600">
+                <h3 class="text-lg font-semibold text-red-400 mb-3">DISCO HOT (SSD)</h3>
+                <p id="disk-hot-value" class="text-3xl font-extrabold">0.0%</p>
+                <p id="disk-hot-used" class="text-sm text-gray-400 mt-1">0 GB usado</p>
+                <div class="progress-bar-container mt-2">
+                    <div id="disk-hot-progress" class="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+            
+            <!-- Disco COLD Widget -->
+            <div class="card p-5 rounded-xl shadow-lg border-l-4 border-red-600">
+                <h3 class="text-lg font-semibold text-red-400 mb-3">DISCO COLD (HD)</h3>
+                <p id="disk-cold-value" class="text-3xl font-extrabold">0.0%</p>
+                <p id="disk-cold-used" class="text-sm text-gray-400 mt-1">0 GB usado</p>
+                <div class="progress-bar-container mt-2">
+                    <div id="disk-cold-progress" class="progress-bar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Estatísticas do Processador -->
+        <h2 class="text-xl font-semibold text-gray-300 mb-4">Status do Processador</h2>
+        
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <!-- Buffer HOT -->
+            <div class="card p-6 rounded-xl shadow-lg border-l-4 border-yellow-600">
+                <h3 class="text-lg font-semibold text-yellow-400 mb-3">BUFFER HOT</h3>
+                <p id="buffer-size" class="text-4xl font-extrabold">0 MB</p>
+                <p class="text-sm text-gray-400 mt-1">Aguardando processamento</p>
+            </div>
+            
+            <!-- Logs de Hoje -->
+            <div class="card p-6 rounded-xl shadow-lg border-l-4 border-green-600">
+                <h3 class="text-lg font-semibold text-green-400 mb-3">LOGS DE HOJE</h3>
+                <p class="text-4xl font-extrabold">{{ '{:,}'.format(today_stats.total_logs).replace(',', '.') }}</p>
+                <p class="text-sm text-gray-400 mt-1">{{ today_stats.db_size_mb }} MB no disco</p>
+            </div>
+            
+            <!-- Status Processador -->
+            <div id="processor-card" class="card p-6 rounded-xl shadow-lg border-l-4 status-active">
+                <h3 class="text-lg font-semibold mb-3">PROCESSADOR</h3>
+                <p id="processor-status" class="text-4xl font-extrabold text-green-500">ATIVO</p>
+                <p id="processor-last-seen" class="text-sm text-gray-400 mt-1">Último log: --</p>
+            </div>
+        </div>
+        
+        <!-- Últimos Dias -->
+        {% if available_dates %}
+        <h2 class="text-xl font-semibold text-gray-300 mb-4">Últimos Dias</h2>
+        <div class="card p-6 rounded-xl shadow-lg">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {% for date in available_dates %}
+                <a href="{{ url_for('main.logs_daily', date=date) }}" 
+                   class="p-4 bg-gray-800 rounded-lg hover:bg-gray-700 transition text-center">
+                    <p class="text-sm text-gray-400">{{ date.strftime('%d/%m') }}</p>
+                    <p class="text-lg font-bold">{{ date.strftime('%a') }}</p>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </main>
+
+    <script>
+        // Atualização em tempo real
+        function formatNumber(num) {
+            return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+        }
+
+        function updateCPUWidgets(cores) {
+            const container = document.getElementById('cpu-cores');
+            container.innerHTML = '';
+            
+            cores.forEach((usage, i) => {
+                const percent = usage.toFixed(1);
+                const color = percent > 80 ? 'bg-red-500' : (percent > 50 ? 'bg-yellow-500' : 'bg-green-500');
+                
+                container.innerHTML += `
+                    <div class="flex items-center space-x-2">
+                        <span class="text-xs w-10 text-gray-400">CPU${i+1}</span>
+                        <div class="progress-bar-container flex-1">
+                            <div class="h-full rounded ${color}" style="width: ${percent}%"></div>
+                        </div>
+                        <span class="text-xs font-bold w-12 text-right">${percent}%</span>
+                    </div>
+                `;
+            });
+        }
+
+        async function updateStatus() {
+            try {
+                const response = await fetch('/api/system-status');
+                const data = await response.json();
+                
+                // CPU
+                updateCPUWidgets(data.cpu_per_core);
+                
+                // RAM
+                document.getElementById('ram-value').textContent = data.ram + '%';
+                document.getElementById('ram-progress').style.width = data.ram + '%';
+                
+                // Disco HOT
+                document.getElementById('disk-hot-value').textContent = data.disk_hot.percent + '%';
+                document.getElementById('disk-hot-used').textContent = 
+                    `${data.disk_hot.used_gb} GB de ${data.disk_hot.total_gb} GB`;
+                document.getElementById('disk-hot-progress').style.width = data.disk_hot.percent + '%';
+                
+                // Disco COLD
+                document.getElementById('disk-cold-value').textContent = data.disk_cold.percent + '%';
+                document.getElementById('disk-cold-used').textContent = 
+                    `${data.disk_cold.used_gb} GB de ${data.disk_cold.total_gb} GB`;
+                document.getElementById('disk-cold-progress').style.width = data.disk_cold.percent + '%';
+                
+                // Buffer
+                document.getElementById('buffer-size').textContent = data.buffer_size_mb.toFixed(2) + ' MB';
+                
+                // Processador
+                if (data.processor_stats.last_log_seen) {
+                    const lastSeen = data.processor_stats.last_log_seen.value;
+                    document.getElementById('processor-last-seen').textContent = `Último log: ${lastSeen}`;
+                    document.getElementById('processor-status').textContent = 'ATIVO';
+                    document.getElementById('processor-status').className = 'text-4xl font-extrabold text-green-500';
+                    document.getElementById('processor-card').className = 
+                        'card p-6 rounded-xl shadow-lg border-l-4 status-active';
+                } else {
+                    document.getElementById('processor-status').textContent = 'AGUARDANDO';
+                    document.getElementById('processor-status').className = 'text-4xl font-extrabold text-yellow-500';
+                }
+                
+            } catch (error) {
+                console.error('Erro ao atualizar status:', error);
+            }
+        }
+        
+        // Atualiza a cada 3 segundos
+        updateStatus();
+        setInterval(updateStatus, 3000);
+        
+        // Remove flash messages após 4s
+        document.addEventListener('DOMContentLoaded', () => {
+            const messages = document.querySelectorAll('.flash-message');
+            messages.forEach(msg => {
+                setTimeout(() => {
+                    msg.style.transition = 'opacity 0.5s ease-out';
+                    msg.style.opacity = '0';
+                    setTimeout(() => msg.remove(), 500);
+                }, 4000);
+            });
+        });
+    </script>
+</body>
+</html>

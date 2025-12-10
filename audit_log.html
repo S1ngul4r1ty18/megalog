@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ system_name }} - Log de Auditoria</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .sidebar { background-color: #1a1a1a; }
+        .main-content { background-color: #0d0d0d; }
+        .card { background-color: #1a1a1a; border: 1px solid #333; }
+        .table-header { background-color: #2c2c2c; }
+        .table-row:nth-child(even) { background-color: #1e1e1e; }
+        .table-row:hover { background-color: #333333; }
+        .action-badge { padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+        .action-login { background-color: #10B981; color: white; }
+        .action-logout { background-color: #6B7280; color: white; }
+        .action-search { background-color: #3B82F6; color: white; }
+        .action-export { background-color: #8B5CF6; color: white; }
+        .action-user { background-color: #F59E0B; color: white; }
+    </style>
+</head>
+<body class="flex min-h-screen text-white">
+    <!-- Sidebar Mínima -->
+    <div class="sidebar w-16 p-2 flex flex-col items-center">
+        <div class="mt-2 mb-10">
+            <svg class="w-8 h-8 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/>
+            </svg>
+        </div>
+        <a href="{{ url_for('main.dashboard') }}" class="p-3 rounded-lg text-gray-300 hover:bg-gray-700 transition" title="Dashboard">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l-7-7-7 7m10 0v10a1 1 0 01-1 1h-3m-6 0h6"/>
+            </svg>
+        </a>
+        <a href="{{ url_for('main.admin_audit_log') }}" class="p-3 rounded-lg bg-red-700 text-white mt-2" title="Auditoria">
+            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+            </svg>
+        </a>
+    </div>
+
+    <!-- Main Content -->
+    <main class="main-content flex-1 p-8 overflow-y-auto">
+        <div class="flex justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-extrabold text-yellow-400">Log de Auditoria</h1>
+                <p class="text-gray-400 mt-1">Registro de todas as ações realizadas no sistema</p>
+            </div>
+            <div class="text-sm text-gray-500">
+                Últimos {{ logs|length }} registros
+            </div>
+        </div>
+        
+        <div class="card p-6 rounded-xl shadow-lg overflow-x-auto">
+            {% if logs %}
+            <table class="min-w-full divide-y divide-gray-700 text-sm">
+                <thead class="table-header">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Timestamp</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Usuário</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Ação</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">Detalhes</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-400 uppercase">IP</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-800">
+                    {% for log in logs %}
+                    <tr class="table-row">
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-300 font-mono text-xs">
+                            {{ log.timestamp }}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="font-semibold text-white">{{ log.username }}</span>
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap">
+                            <span class="action-badge 
+                                {% if 'LOGIN' in log.action %}action-login
+                                {% elif 'LOGOUT' in log.action %}action-logout
+                                {% elif 'BUSCA' in log.action or 'SEARCH' in log.action %}action-search
+                                {% elif 'EXPORT' in log.action %}action-export
+                                {% elif 'USER' in log.action or 'PASSWORD' in log.action %}action-user
+                                {% else %}action-logout{% endif %}">
+                                {{ log.action }}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-300">
+                            {% if log.details %}
+                                <span class="text-xs">{{ log.details[:100] }}{% if log.details|length > 100 %}...{% endif %}</span>
+                            {% else %}
+                                <span class="text-gray-600 text-xs">-</span>
+                            {% endif %}
+                        </td>
+                        <td class="px-4 py-3 whitespace-nowrap text-gray-400 font-mono text-xs">
+                            {{ log.ip_address or '-' }}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="mt-6 p-4 bg-blue-900/20 border border-blue-600 rounded-lg">
+                <p class="text-blue-400 text-sm">
+                    💡 <strong>Dica:</strong> Os logs de auditoria são permanentes e não podem ser deletados. 
+                    Use-os para rastrear atividades suspeitas ou gerar relatórios de compliance.
+                </p>
+            </div>
+            
+            {% else %}
+            <div class="text-center py-10">
+                <svg class="mx-auto w-16 h-16 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                </svg>
+                <p class="text-gray-500">Nenhum log de auditoria encontrado.</p>
+            </div>
+            {% endif %}
+        </div>
+    </main>
+</body>
+</html>
