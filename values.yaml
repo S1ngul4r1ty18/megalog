@@ -1,0 +1,175 @@
+# Default values for megalog helm chart
+
+replicaCount: 2
+
+image:
+  repository: megalog
+  tag: "v2.0"
+  pullPolicy: IfNotPresent
+
+processorImage:
+  repository: megalog-processor
+  tag: "v2.0"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+serviceAccount:
+  create: true
+  name: megalog
+  annotations: {}
+
+podSecurityPolicy:
+  enabled: false
+
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop:
+    - ALL
+
+service:
+  type: LoadBalancer
+  port: 80
+  targetPort: 80
+  httpsPort: 443
+  httpsTargetPort: 443
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: megalog.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: megalog-tls
+      hosts:
+        - megalog.example.com
+
+resources:
+  web:
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+    requests:
+      cpu: 500m
+      memory: 512Mi
+  
+  processor:
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+    requests:
+      cpu: 500m
+      memory: 256Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+persistence:
+  enabled: true
+  storageClass: "default"
+  
+  hot:
+    size: 50Gi
+    mountPath: /dados1/system-log/hot
+    # hostPath: /dados1/system-log/hot  # Para local testing
+  
+  cold:
+    size: 500Gi
+    mountPath: /dados2/system-log/cold
+    # hostPath: /dados2/system-log/cold
+  
+  logs:
+    size: 50Gi
+    mountPath: /var/log/megalog
+    # hostPath: /var/log/megalog
+
+config:
+  logBatchSize: 500
+  logFlushInterval: 10
+  dbTimeout: 30
+  flaskEnv: production
+  pythonUnbuffered: 1
+
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 2
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+monitoring:
+  prometheus:
+    enabled: false
+    interval: 30s
+  
+  datadog:
+    enabled: false
+    # apiKey: YOUR_DD_API_KEY
+
+backup:
+  enabled: false
+  schedule: "0 2 * * *"  # 2 AM daily
+  retention: 7  # days
+
+# Default credentials (MUST be changed!)
+credentials:
+  username: superadmin
+  password: admin123
+
+# Network policies
+networkPolicy:
+  enabled: false
+  ingress:
+    - from:
+      - namespaceSelector:
+          matchLabels:
+            name: megalog
+
+# RBAC
+rbac:
+  create: true
+  rules:
+    - apiGroups: [""]
+      resources: ["configmaps"]
+      verbs: ["get", "list", "watch"]
+
+# HPA custom metrics (if using Prometheus)
+customMetrics:
+  enabled: false
+  queries:
+    httpRequestsPerSecond: "rate(http_requests_total[1m])"
+    processorsLag: "pygtail_offset_lag_bytes"

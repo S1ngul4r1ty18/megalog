@@ -1,0 +1,181 @@
+{{- /*
+Helm template for MEGA LOG V2.0 Deployment
+This is the main deployment template that creates web pods
+*/ -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "megalog.fullname" . }}-web
+  labels:
+    {{- include "megalog.labels" . | nindent 4 }}
+    component: web
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      {{- include "megalog.selectorLabels" . | nindent 6 }}
+      component: web
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+      labels:
+        {{- include "megalog.selectorLabels" . | nindent 8 }}
+        component: web
+    spec:
+      serviceAccountName: {{ include "megalog.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      
+      containers:
+      - name: {{ .Chart.Name }}
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        
+        envFrom:
+        - configMapRef:
+            name: {{ include "megalog.fullname" . }}-config
+        
+        {{- if .Values.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+        {{- end }}
+        
+        {{- if .Values.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+        {{- end }}
+        
+        resources:
+          {{- toYaml .Values.resources.web | nindent 12 }}
+        
+        volumeMounts:
+        - name: hot-logs
+          mountPath: {{ .Values.persistence.hot.mountPath }}
+        - name: cold-logs
+          mountPath: {{ .Values.persistence.cold.mountPath }}
+        - name: app-logs
+          mountPath: {{ .Values.persistence.logs.mountPath }}
+      
+      volumes:
+      {{- if .Values.persistence.enabled }}
+      - name: hot-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-hot-pvc
+      - name: cold-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-cold-pvc
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-logs-pvc
+      {{- else }}
+      - name: hot-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.hot.size }}
+      - name: cold-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.cold.size }}
+      - name: app-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.logs.size }}
+      {{- end }}
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "megalog.fullname" . }}-processor
+  labels:
+    {{- include "megalog.labels" . | nindent 4 }}
+    component: processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "megalog.selectorLabels" . | nindent 6 }}
+      component: processor
+  template:
+    metadata:
+      labels:
+        {{- include "megalog.selectorLabels" . | nindent 8 }}
+        component: processor
+    spec:
+      serviceAccountName: {{ include "megalog.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      
+      containers:
+      - name: processor
+        securityContext:
+          {{- toYaml .Values.securityContext | nindent 12 }}
+        image: "{{ .Values.processorImage.repository }}:{{ .Values.processorImage.tag | default .Chart.AppVersion }}"
+        imagePullPolicy: {{ .Values.processorImage.pullPolicy }}
+        
+        envFrom:
+        - configMapRef:
+            name: {{ include "megalog.fullname" . }}-config
+        
+        resources:
+          {{- toYaml .Values.resources.processor | nindent 12 }}
+        
+        volumeMounts:
+        - name: hot-logs
+          mountPath: {{ .Values.persistence.hot.mountPath }}
+        - name: cold-logs
+          mountPath: {{ .Values.persistence.cold.mountPath }}
+        - name: app-logs
+          mountPath: {{ .Values.persistence.logs.mountPath }}
+      
+      volumes:
+      {{- if .Values.persistence.enabled }}
+      - name: hot-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-hot-pvc
+      - name: cold-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-cold-pvc
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: {{ include "megalog.fullname" . }}-logs-pvc
+      {{- else }}
+      - name: hot-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.hot.size }}
+      - name: cold-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.cold.size }}
+      - name: app-logs
+        emptyDir:
+          sizeLimit: {{ .Values.persistence.logs.size }}
+      {{- end }}

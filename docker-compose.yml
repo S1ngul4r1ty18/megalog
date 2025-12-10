@@ -1,0 +1,71 @@
+version: '3.9'
+
+services:
+  # Serviço Web + Nginx
+  megalog:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: megalog-app
+    image: megalog:v2.0
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # HOT Storage (buffer de entrada)
+      - hot_logs:/dados1/system-log/hot
+      # COLD Storage (banco de dados)
+      - cold_logs:/dados2/system-log/cold
+      # Logs da aplicação
+      - logs:/var/log/megalog
+    networks:
+      - megalog-net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s
+    labels:
+      - "com.megalog.description=MEGA LOG V2.0 - Sistema Forense de Logs"
+      - "com.megalog.version=2.0-STREAM"
+
+  # Processador em container separado (opcional)
+  processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.processor
+    container_name: megalog-processor
+    image: megalog-processor:v2.0
+    restart: unless-stopped
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    volumes:
+      # Compartilha os mesmos volumes HOT/COLD
+      - hot_logs:/dados1/system-log/hot
+      - cold_logs:/dados2/system-log/cold
+      - logs:/var/log/megalog
+    networks:
+      - megalog-net
+    depends_on:
+      megalog:
+        condition: service_healthy
+    labels:
+      - "com.megalog.component=processor"
+
+volumes:
+  hot_logs:
+    driver: local
+  cold_logs:
+    driver: local
+  logs:
+    driver: local
+
+networks:
+  megalog-net:
+    driver: bridge

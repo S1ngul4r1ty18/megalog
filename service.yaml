@@ -1,0 +1,28 @@
+{{- /*
+Service template for MEGA LOG
+*/ -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "megalog.fullname" . }}
+  labels:
+    {{- include "megalog.labels" . | nindent 4 }}
+  {{- with .Values.service.annotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "megalog.selectorLabels" . | nindent 4 }}
+    component: web
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: {{ .Values.service.targetPort }}
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.httpsPort }}
+      targetPort: {{ .Values.service.httpsTargetPort }}
+      protocol: TCP
+      name: https
+  sessionAffinity: ClientIP

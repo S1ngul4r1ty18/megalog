@@ -20,5 +20,6 @@ gunicorn==23.0.0
 # Opcional: Monitoramento
 # prometheus-client==0.19.0
 
-# Opcional: Alertas
-# requests==2.31.0  # Para webhooks
+# Opcional: Alertas e GeoIP
+requests==2.32.5  # Para webhooks e ASN lookup (fallback)
+geoip2==5.2.0  # MaxMind GeoLite2-ASN lookup local (recomendado)

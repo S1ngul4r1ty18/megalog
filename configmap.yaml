@@ -1,0 +1,15 @@
+{{- /*
+ConfigMap template for MEGA LOG
+*/ -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "megalog.fullname" . }}-config
+  labels:
+    {{- include "megalog.labels" . | nindent 4 }}
+data:
+  LOG_BATCH_SIZE: {{ .Values.config.logBatchSize | quote }}
+  LOG_FLUSH_INTERVAL: {{ .Values.config.logFlushInterval | quote }}
+  DB_TIMEOUT: {{ .Values.config.dbTimeout | quote }}
+  FLASK_ENV: {{ .Values.config.flaskEnv | quote }}
+  PYTHONUNBUFFERED: {{ .Values.config.pythonUnbuffered | quote }}

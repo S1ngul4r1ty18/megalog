@@ -145,6 +145,8 @@ class LogGenerator:
 
 def main():
     """Ponto de entrada"""
+    global LOGS_PER_SECOND
+    
     import argparse
     
     parser = argparse.ArgumentParser(description="Gerador de Logs de Teste - MEGA LOG")
@@ -161,7 +163,6 @@ def main():
     print("=" * 60)
     print()
     
-    global LOGS_PER_SECOND
     LOGS_PER_SECOND = args.rate
     
     generator = LogGenerator(args.server, args.port)

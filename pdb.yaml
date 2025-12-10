@@ -1,0 +1,17 @@
+{{- /*
+PDB template for MEGA LOG
+*/ -}}
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "megalog.fullname" . }}-pdb
+  labels:
+    {{- include "megalog.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "megalog.selectorLabels" . | nindent 6 }}
+      component: web
+{{- end }}

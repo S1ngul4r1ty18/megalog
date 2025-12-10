@@ -1,0 +1,357 @@
+# Kubernetes Deployment para MEGA LOG V2.0
+# Deploy com: kubectl apply -f kubernetes-deployment.yaml
+
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: megalog-config
+  namespace: default
+data:
+  LOG_BATCH_SIZE: "500"
+  LOG_FLUSH_INTERVAL: "10"
+  DB_TIMEOUT: "30"
+  FLASK_ENV: "production"
+  PYTHONUNBUFFERED: "1"
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: megalog-hot-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /dados1/system-log/hot
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: megalog-cold-pv
+spec:
+  capacity:
+    storage: 500Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /dados2/system-log/cold
+
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: megalog-logs-pv
+spec:
+  capacity:
+    storage: 50Gi
+  accessModes:
+    - ReadWriteMany
+  persistentVolumeReclaimPolicy: Retain
+  hostPath:
+    path: /var/log/megalog
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: megalog-hot-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: megalog-hot-pv
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: megalog-cold-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 500Gi
+  volumeName: megalog-cold-pv
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: megalog-logs-pvc
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 50Gi
+  volumeName: megalog-logs-pv
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: megalog-web
+  labels:
+    app: megalog
+    component: web
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: megalog
+      component: web
+  template:
+    metadata:
+      labels:
+        app: megalog
+        component: web
+    spec:
+      serviceAccountName: megalog
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      containers:
+      - name: megalog-web
+        image: megalog:v2.0
+        imagePullPolicy: IfNotPresent
+        
+        ports:
+        - name: http
+          containerPort: 80
+          protocol: TCP
+        - name: https
+          containerPort: 443
+          protocol: TCP
+        
+        envFrom:
+        - configMapRef:
+            name: megalog-config
+        
+        resources:
+          requests:
+            cpu: 500m
+            memory: 512Mi
+          limits:
+            cpu: 2000m
+            memory: 2Gi
+        
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 5
+          failureThreshold: 3
+        
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: http
+            scheme: HTTP
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 2
+        
+        volumeMounts:
+        - name: hot-logs
+          mountPath: /dados1/system-log/hot
+        - name: cold-logs
+          mountPath: /dados2/system-log/cold
+        - name: app-logs
+          mountPath: /var/log/megalog
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      
+      volumes:
+      - name: hot-logs
+        persistentVolumeClaim:
+          claimName: megalog-hot-pvc
+      - name: cold-logs
+        persistentVolumeClaim:
+          claimName: megalog-cold-pvc
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: megalog-logs-pvc
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: megalog-processor
+  labels:
+    app: megalog
+    component: processor
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: megalog
+      component: processor
+  template:
+    metadata:
+      labels:
+        app: megalog
+        component: processor
+    spec:
+      serviceAccountName: megalog
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      containers:
+      - name: processor
+        image: megalog-processor:v2.0
+        imagePullPolicy: IfNotPresent
+        
+        envFrom:
+        - configMapRef:
+            name: megalog-config
+        
+        resources:
+          requests:
+            cpu: 500m
+            memory: 256Mi
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+        
+        volumeMounts:
+        - name: hot-logs
+          mountPath: /dados1/system-log/hot
+        - name: cold-logs
+          mountPath: /dados2/system-log/cold
+        - name: app-logs
+          mountPath: /var/log/megalog
+        
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+      
+      volumes:
+      - name: hot-logs
+        persistentVolumeClaim:
+          claimName: megalog-hot-pvc
+      - name: cold-logs
+        persistentVolumeClaim:
+          claimName: megalog-cold-pvc
+      - name: app-logs
+        persistentVolumeClaim:
+          claimName: megalog-logs-pvc
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: megalog
+  labels:
+    app: megalog
+spec:
+  type: LoadBalancer
+  selector:
+    app: megalog
+    component: web
+  ports:
+  - name: http
+    port: 80
+    targetPort: 80
+    protocol: TCP
+  - name: https
+    port: 443
+    targetPort: 443
+    protocol: TCP
+  sessionAffinity: ClientIP
+
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: megalog
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: megalog
+rules:
+- apiGroups: [""]
+  resources: ["configmaps"]
+  verbs: ["get", "list", "watch"]
+
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: megalog
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: megalog
+subjects:
+- kind: ServiceAccount
+  name: megalog
+
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: megalog-web-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: megalog-web
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: megalog-web-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: megalog
+      component: web

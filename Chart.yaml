@@ -1,0 +1,21 @@
+# Helm Chart for MEGA LOG V2.0
+# Install: helm install megalog ./helm/megalog -n megalog --create-namespace
+
+apiVersion: v2
+name: megalog
+description: MEGA LOG V2.0 - Log Aggregation and Forensics Platform
+type: application
+version: 2.0.0
+appVersion: "2.0"
+home: https://example.com/megalog
+sources:
+  - https://github.com/example/megalog
+maintainers:
+  - name: Admin
+    email: admin@example.com
+keywords:
+  - logging
+  - forensics
+  - aggregation
+  - security
+icon: https://example.com/megalog-icon.png

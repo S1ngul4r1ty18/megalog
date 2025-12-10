@@ -196,8 +196,8 @@
             <!-- Logs de Hoje -->
             <div class="card p-6 rounded-xl shadow-lg border-l-4 border-green-600">
                 <h3 class="text-lg font-semibold text-green-400 mb-3">LOGS DE HOJE</h3>
-                <p class="text-4xl font-extrabold">{{ '{:,}'.format(today_stats.total_logs).replace(',', '.') }}</p>
-                <p class="text-sm text-gray-400 mt-1">{{ today_stats.db_size_mb }} MB no disco</p>
+                <p id="today-logs-count" class="text-4xl font-extrabold">{{ '{:,}'.format(today_stats.total_logs).replace(',', '.') }}</p>
+                <p id="today-logs-size" class="text-sm text-gray-400 mt-1">{{ today_stats.db_size_mb }} MB no disco</p>
             </div>
             
             <!-- Status Processador -->
@@ -254,45 +254,72 @@
         async function updateStatus() {
             try {
                 const response = await fetch('/api/system-status');
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
                 const data = await response.json();
-                
+
                 // CPU
-                updateCPUWidgets(data.cpu_per_core);
-                
+                if (data.cpu_per_core && Array.isArray(data.cpu_per_core)) {
+                    updateCPUWidgets(data.cpu_per_core);
+                }
+
                 // RAM
-                document.getElementById('ram-value').textContent = data.ram + '%';
-                document.getElementById('ram-progress').style.width = data.ram + '%';
-                
+                if (data.ram !== undefined) {
+                    document.getElementById('ram-value').textContent = data.ram + '%';
+                    document.getElementById('ram-progress').style.width = data.ram + '%';
+                }
+
                 // Disco HOT
-                document.getElementById('disk-hot-value').textContent = data.disk_hot.percent + '%';
-                document.getElementById('disk-hot-used').textContent = 
-                    `${data.disk_hot.used_gb} GB de ${data.disk_hot.total_gb} GB`;
-                document.getElementById('disk-hot-progress').style.width = data.disk_hot.percent + '%';
-                
+                if (data.disk_hot) {
+                    document.getElementById('disk-hot-value').textContent = data.disk_hot.percent + '%';
+                    document.getElementById('disk-hot-used').textContent =
+                        `${data.disk_hot.used_gb} GB de ${data.disk_hot.total_gb} GB`;
+                    document.getElementById('disk-hot-progress').style.width = data.disk_hot.percent + '%';
+                }
+
                 // Disco COLD
-                document.getElementById('disk-cold-value').textContent = data.disk_cold.percent + '%';
-                document.getElementById('disk-cold-used').textContent = 
-                    `${data.disk_cold.used_gb} GB de ${data.disk_cold.total_gb} GB`;
-                document.getElementById('disk-cold-progress').style.width = data.disk_cold.percent + '%';
-                
+                if (data.disk_cold) {
+                    document.getElementById('disk-cold-value').textContent = data.disk_cold.percent + '%';
+                    document.getElementById('disk-cold-used').textContent =
+                        `${data.disk_cold.used_gb} GB de ${data.disk_cold.total_gb} GB`;
+                    document.getElementById('disk-cold-progress').style.width = data.disk_cold.percent + '%';
+                }
+
                 // Buffer
-                document.getElementById('buffer-size').textContent = data.buffer_size_mb.toFixed(2) + ' MB';
-                
+                if (data.buffer_size_mb !== undefined) {
+                    document.getElementById('buffer-size').textContent = data.buffer_size_mb.toFixed(2) + ' MB';
+                }
+
+                // Logs de Hoje
+                if (data.today_stats) {
+                    const totalLogs = data.today_stats.total_logs;
+                    const formattedLogs = totalLogs.toLocaleString('pt-BR');
+                    document.getElementById('today-logs-count').textContent = formattedLogs;
+                    document.getElementById('today-logs-size').textContent = data.today_stats.db_size_mb + ' MB no disco';
+                }
+
                 // Processador
-                if (data.processor_stats.last_log_seen) {
+                if (data.processor_stats && data.processor_stats.last_log_seen) {
                     const lastSeen = data.processor_stats.last_log_seen.value;
-                    document.getElementById('processor-last-seen').textContent = `Último log: ${lastSeen}`;
+                    // Formata a data ISO para exibição
+                    const date = new Date(lastSeen);
+                    const formatted = date.toLocaleString('pt-BR');
+                    document.getElementById('processor-last-seen').textContent = `Último log: ${formatted}`;
                     document.getElementById('processor-status').textContent = 'ATIVO';
                     document.getElementById('processor-status').className = 'text-4xl font-extrabold text-green-500';
-                    document.getElementById('processor-card').className = 
+                    document.getElementById('processor-card').className =
                         'card p-6 rounded-xl shadow-lg border-l-4 status-active';
                 } else {
                     document.getElementById('processor-status').textContent = 'AGUARDANDO';
                     document.getElementById('processor-status').className = 'text-4xl font-extrabold text-yellow-500';
+                    document.getElementById('processor-card').className =
+                        'card p-6 rounded-xl shadow-lg border-l-4 status-warning';
                 }
-                
+
             } catch (error) {
                 console.error('Erro ao atualizar status:', error);
+                // Em caso de erro, não quebrar a interface
             }
         }
         

@@ -11,25 +11,21 @@ from app import config
 
 # ==================== REGEX DE PARSING ====================
 # Suporta logs Mikrotik com NAT
+# NOTA: Interfaces podem ter espaços (ex: "REDE LAN")
 LOG_REGEX_WITH_NAT = re.compile(
-    r'.*?(?P<syslog_ts>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?'
-    r'in:(?P<interface_in>\S+)\s+'
-    r'out:(?P<interface_out>\S+),\s+.*?'
-    r'proto\s+(?P<proto>\S+),\s+'
-    r'(?P<src_ip_priv>[\d\.]+):(?P<src_port_priv>\d+)->'
-    r'(?P<dst_ip>[\d\.]+):(?P<dst_port>\d+),\s+.*?'
-    r'NAT\s+\((?P<nat_ip_priv>[\d\.]+):(?P<nat_port_priv>\d+)->'
-    r'(?P<nat_ip_pub>[\d\.]+):(?P<nat_port_pub>\d+)\)->'
+    r'(?P<syslog_ts>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?'
+    r'in:(?P<interface_in>.+?)\s+out:(?P<interface_out>.+?),.*?'
+    r'proto\s+(?P<proto>\w+).*?'
+    r'(?P<src_ip_priv>[\d\.]+):(?P<src_port_priv>\d+)->(?P<dst_ip>[\d\.]+):(?P<dst_port>\d+).*?'
+    r'NAT\s+\([^>]+->(?P<nat_ip_pub>[\d\.]+):(?P<nat_port_pub>\d+)\)'
 )
 
 # Suporta logs sem NAT (fallback)
 LOG_REGEX_NO_NAT = re.compile(
-    r'.*?(?P<syslog_ts>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?'
-    r'in:(?P<interface_in>\S+)\s+'
-    r'out:(?P<interface_out>\S+),\s+.*?'
-    r'proto\s+(?P<proto>\S+),\s+'
-    r'(?P<src_ip_priv>[\d\.]+):(?P<src_port_priv>\d+)->'
-    r'(?P<dst_ip>[\d\.]+):(?P<dst_port>\d+)'
+    r'(?P<syslog_ts>\w{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}).*?'
+    r'in:(?P<interface_in>.+?)\s+out:(?P<interface_out>.+?),.*?'
+    r'proto\s+(?P<proto>\w+).*?'
+    r'(?P<src_ip_priv>[\d\.]+):(?P<src_port_priv>\d+)->(?P<dst_ip>[\d\.]+):(?P<dst_port>\d+)'
 )
 
 # ==================== CACHE GLOBAL ====================
